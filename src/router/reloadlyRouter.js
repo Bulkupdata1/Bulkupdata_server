@@ -56,7 +56,7 @@ router.get("/operators", async (req, res) => {
   }
 });
 
-// ✅ 2. Get Operator by ID
+// ✅ 2. Get Operator buby ID
 router.get("/operators/:id", async (req, res) => {
   try {
     //const token = await getAccessToken();
@@ -187,7 +187,7 @@ router.post("/create-paystack-payment", async (req, res) => {
     const { amount, currency = "NGN", callback_url } = req.body;
     //const email = `ceo@lukasdesignlab.com`;
 
-    const email = `ibenemeikenna2021@gmail.com`;
+    const email = `bulkupdata@gmail.com`;
 
     console.log(amount, currency);
     if (!amount || !callback_url) {

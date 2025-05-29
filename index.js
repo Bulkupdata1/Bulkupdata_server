@@ -10,12 +10,13 @@ const server = http.createServer(app);
 
 app.use(
   cors({
-    origin: "https://www.bulkupdata.com",
+    origin: ["https://www.bulkupdata.com", "http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
+//app.use(cors({ origin: "*" }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use("/api/reloadly", reloadlyRouter);

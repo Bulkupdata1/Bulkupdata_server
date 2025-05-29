@@ -1,0 +1,125 @@
+[
+  {
+    "id": 346,
+    "operatorId": 346,
+    "name": "MTN Nigeria Bundles",
+    "bundle": true,
+    "data": false,
+    "pin": false,
+    "comboProduct": false,
+    "supportsLocalAmounts": true,
+    "supportsGeographicalRechargePlans": false,
+    "denominationType": "FIXED",
+    "senderCurrencyCode": "NGN",
+    "senderCurrencySymbol": "₦",
+    "destinationCurrencyCode": "NGN",
+    "destinationCurrencySymbol": "₦",
+    "commission": 3,
+    "internationalDiscount": 3,
+    "localDiscount": 0,
+    "mostPopularAmount": 5500,
+    "mostPopularLocalAmount": null,
+    "minAmount": null,
+    "maxAmount": null,
+    "localMinAmount": null,
+    "localMaxAmount": null,
+    "country": {
+      "isoName": "NG",
+      "name": "Nigeria"
+    },
+    "fx": {
+      "rate": 1,
+      "currencyCode": "NGN"
+    },
+    "logoUrls": [
+      "https://s3.amazonaws.com/rld-operator/ab2de6e9-40be-4a33-916c-1cd2018b6727-size-2.png",
+      "https://s3.amazonaws.com/rld-operator/ab2de6e9-40be-4a33-916c-1cd2018b6727-size-3.png",
+      "https://s3.amazonaws.com/rld-operator/ab2de6e9-40be-4a33-916c-1cd2018b6727-size-1.png"
+    ],
+    "fixedAmounts": [500, 1500, 3000, 5500],
+    "fixedAmountsDescriptions": {
+      "500.00": "Get 600MB + 2mins + 2 SMS, valid for 7 days",
+      "1500.00": "Get 1.8GB + 6mins + 5 SMS, valid for 7 days",
+      "3000.00": "Get 2.7GB+15mins, valid for 30 days",
+      "5500.00": "Get 12.5GB + 36mins + 15 SMS"
+    },
+    "localFixedAmounts": [],
+    "localFixedAmountsDescriptions": null,
+    "suggestedAmounts": [],
+    "suggestedAmountsMap": {},
+    "fees": {
+      "international": 0,
+      "local": 0,
+      "localPercentage": 0,
+      "internationalPercentage": 0
+    },
+    "geographicalRechargePlans": [],
+    "promotions": [],
+    "status": "ACTIVE"
+  },
+
+  {
+    "id": 1256,
+    "operatorId": 1256,
+    "name": "Airtel Nigeria Bundle",
+    "bundle": true,
+    "data": true,
+    "pin": false,
+    "comboProduct": false,
+    "supportsLocalAmounts": true,
+    "supportsGeographicalRechargePlans": false,
+    "denominationType": "FIXED",
+    "senderCurrencyCode": "NGN",
+    "senderCurrencySymbol": "₦",
+    "destinationCurrencyCode": "NGN",
+    "destinationCurrencySymbol": "₦",
+    "commission": 4,
+    "internationalDiscount": 4,
+    "localDiscount": 3.5,
+    "mostPopularAmount": 4999.93,
+    "mostPopularLocalAmount": null,
+    "minAmount": null,
+    "maxAmount": null,
+    "localMinAmount": null,
+    "localMaxAmount": null,
+    "country": {
+      "isoName": "NG",
+      "name": "Nigeria"
+    },
+    "fx": {
+      "rate": 1,
+      "currencyCode": "NGN"
+    },
+    "logoUrls": [
+      "https://s3.amazonaws.com/rld-portal-avatar-prd/95db3bed-04b1-4afa-96a1-e42134789e6f.png",
+      "https://s3.amazonaws.com/rld-portal-avatar-prd/90a1d418-f58c-4722-a8c4-5bdb10ffaf1d.png",
+      "https://s3.amazonaws.com/rld-portal-avatar-prd/22f59f8b-6ea5-49e7-801d-71d0fab180e6.png"
+    ],
+    "fixedAmounts": [
+      99.93, 199.92, 299.93, 499.95, 999.94, 1499.94, 1999.92, 4999.93
+    ],
+    "fixedAmountsDescriptions": {
+      "99.93": "Talkmore_N100 -10 Mins - 3days",
+      "199.92": "Talkmore_N200 - 20 mins 3days",
+      "299.93": "Talkmore_N300 - 30 mins 3days",
+      "499.95": "Talkmore_N500 - 50 mins - 14days",
+      "999.94": "Talkmore_N1000 - 100mins - 14days",
+      "1499.94": "Talkmore_N1500 - 150mins - 30days",
+      "1999.92": "Flexi_N2000 - 40mins + 2.5GB + 5 SMS 30days",
+      "4999.93": "Flexi_N5000 - 100mins + 12GB + 5 SMS - 30days"
+    },
+    "localFixedAmounts": [],
+    "localFixedAmountsDescriptions": null,
+    "suggestedAmounts": [],
+    "suggestedAmountsMap": {},
+    "fees": {
+      "international": 0,
+      "local": 0,
+      "localPercentage": 0,
+      "internationalPercentage": 0
+    },
+    "geographicalRechargePlans": [],
+    "promotions": [],
+    "status": "ACTIVE"
+  }
+]

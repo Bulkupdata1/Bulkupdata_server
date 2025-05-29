@@ -4,7 +4,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const http = require("http");
 const mongoose = require("mongoose");
-const reloadlyRouter = require('./router/reloadlyRouter');
+const reloadlyRouter = require('./src/router/reloadlyRouter');
 const app = express();
 const server = http.createServer(app);
 

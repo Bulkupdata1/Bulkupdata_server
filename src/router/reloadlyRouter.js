@@ -14,6 +14,9 @@ const hardCodedToken = `eyJraWQiOiI1N2JjZjNhNy01YmYwLTQ1M2QtODQ0Mi03ODhlMTA4OWI3
 // const CLIENT_ID = process.env.RELOADLY_CLIENT_ID;
 // const CLIENT_SECRET = process.env.RELOADLY_CLIENT_SECRET;
 const ENVIRONMENT = process.env.RELOADLY_ENV || "sandbox";
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const WEB_URL = "http://localhost:5173"; 
+const WEB_URL_PROD = process.env.WEB_URL_PROD 
 
 const BASE_URL =
   ENVIRONMENT === "production"
@@ -178,7 +181,6 @@ router.get("/transactions/:transactionId", async (req, res) => {
   }
 });
 
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 router.post("/create-paystack-payment", async (req, res) => {
   try {
@@ -251,7 +253,7 @@ router.post("/main-topup/:ref", async (req, res) => {
 
     if (paymentData.status !== "success") {
       return res.redirect(
-        `http://localhost:5173/recharge-failure?status=failure&ref=${paymentRef}`
+        `${WEB_URL_PROD}/recharge-failure?status=failure&ref=${paymentRef}`
       );
     }
 
@@ -316,7 +318,7 @@ router.get("/verify-payment", async (req, res) => {
 
     if (paymentData.status !== "success") {
       return res.redirect(
-        `http://localhost:5173/payment-failure?status=failure&ref=${paymentRef}`
+        `${WEB_URL_PROD}/payment-failure?status=failure&ref=${paymentRef}`
       );
     }
 
@@ -328,14 +330,14 @@ router.get("/verify-payment", async (req, res) => {
 
     // ✅ Redirect back to your React app
     // return res.redirect(
-    //   `http://localhost:5173/payment-success?status=success&ref=${paymentRef}`
+    //   `${WEB_URL_PROD}/payment-success?status=success&ref=${paymentRef}`
     // );
   } catch (error) {
     console.error(
       "❌ Error verifying payment:",
       error?.response?.data || error.message
     );
-    return res.redirect(`http://localhost:5173/payment-failure?status=error`);
+    return res.redirect(`${WEB_URL_PROD}/payment-failure?status=error`);
   }
 });
 

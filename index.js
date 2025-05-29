@@ -4,14 +4,21 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const http = require("http");
 const mongoose = require("mongoose");
-const reloadlyRouter = require('./src/router/reloadlyRouter');
+const reloadlyRouter = require("./src/router/reloadlyRouter");
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "https://www.bulkupdata.com",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use('/api/reloadly', reloadlyRouter);
+app.use("/api/reloadly", reloadlyRouter);
 
 mongoose
   .connect(process.env.MONGO_URI)

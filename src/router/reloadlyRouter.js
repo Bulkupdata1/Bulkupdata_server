@@ -1,6 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
+const Token = require('../models/Token')
 
 const fetch = (...args) => {
   console.log(
@@ -15,8 +16,8 @@ const hardCodedToken = `eyJraWQiOiIwMDA1YzFmMC0xMjQ3LTRmNmUtYjU2ZC1jM2ZkZDVmMzhh
 const ENVIRONMENT = process.env.NODE_ENV || "production"; // Default to sandbox if not set
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-const WEB_URL = "http://localhost:5174"; // Development frontend URL
-const WEB_URL_PROD = "http://localhost:5174"; // Production frontend URL (can be different)
+const WEB_URL = "http://www.bulkupdata.com";
+const WEB_URL_PROD = "http://www.bulkupdata.com"; // Production frontend URL (can be different)
 
 // Log configuration values for debugging
 console.log("[Config] ENVIRONMENT:", ENVIRONMENT);
@@ -37,6 +38,154 @@ const BASE_URL =
 console.log("[Config] BASE_URL:", BASE_URL);
 
 // --- API Routes for Reloadly and Paystack Integration ---
+
+// --- Token Management Functions ---
+
+/**
+ * Fetches a new access token from Reloadly and stores/updates it in the database.
+ * @param {string} clientId - The Reloadly client ID.
+ * @param {string} clientSecret - The Reloadly client secret.
+ * @returns {Promise<string>} The new access token.
+ * @throws {Error} If token creation fails.
+ */
+const createToken = async (clientId, clientSecret) => {
+  console.log("⏳ Attempting to create/refresh a new Reloadly access token...");
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Reloadly Client ID and Secret are required to create a token."
+    );
+  }
+
+  try {
+    const options = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "client_credentials",
+        audience: RELOADLY_AUDIENCE,
+      }),
+    };
+
+    const response = await fetch(RELOADLY_AUTH_URL, options);
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("❌ Reloadly token creation failed:", data);
+      throw new Error(
+        data.error_description || "Failed to get a new token from Reloadly."
+      );
+    }
+
+    // Calculate expiration time
+    const expiresInMs = data.expires_in * 1000; // expires_in is in seconds
+    const expiresAt = new Date(Date.now() + expiresInMs);
+
+    // Find and update the token in the database, or create it if it doesn't exist
+    const updatedToken = await Token.findOneAndUpdate(
+      {}, // An empty object to find the single token document
+      {
+        accessToken: data.access_token,
+        expiresIn: data.expires_in,
+        expiresAt: expiresAt,
+        updatedAt: Date.now(), // Update the updatedAt field
+      },
+      {
+        new: true, // Return the updated document
+        upsert: true, // Create the document if it doesn't exist
+        runValidators: true,
+      }
+    );
+
+    console.log(
+      "✅ New Reloadly access token successfully created/updated in DB."
+    );
+    return updatedToken.accessToken;
+  } catch (error) {
+    console.error("Fatal Error during Reloadly token creation:", error.message);
+    throw error;
+  }
+};
+
+/**
+ * Retrieves a valid Reloadly access token from the database.
+ * If the token is expired or not present, it attempts to create a new one using environment variables.
+ * @returns {Promise<string>} A valid access token.
+ * @throws {Error} If a valid token cannot be obtained.
+ */
+const getValidToken = async () => {
+  try {
+    const storedToken = await Token.findOne({});
+
+    // Check if a token exists and is still valid (with a small buffer)
+    if (storedToken && storedToken.expiresAt > new Date(Date.now() + 5000)) {
+      // 5-second buffer
+      console.log("✅ Using existing valid Reloadly access token from DB.");
+      return storedToken.accessToken;
+    }
+
+    // If no token or expired, create a new one using environment variables
+    console.log(
+      "⏳ Reloadly access token expired/not found in DB. Attempting to refresh..."
+    );
+    const newToken = await createToken(
+      RELOADLY_CLIENT_ID,
+      RELOADLY_CLIENT_SECRET
+    );
+    return newToken;
+  } catch (error) {
+    console.error(
+      "❌ Failed to obtain a valid Reloadly access token:",
+      error.message
+    );
+    throw new Error(
+      "Could not obtain a valid Reloadly access token. Check credentials and network."
+    );
+  }
+};
+
+
+const getStoredToken = async () => {
+  try {
+    const storedToken = await Token.findOne({});
+    if (!storedToken) {
+      throw new Error("Access token not found in database.");
+    }
+    return storedToken.accessToken;
+  } catch (err) {
+    console.error("[Error] Failed to retrieve stored token:", err.message);
+    throw err; // Rethrow the error to stop execution
+  }
+};
+
+
+router.post("/admin/token/create-token", async (req, res) => {
+  console.log(
+    "[Route] POST /create-token - Manual token update request received."
+  );
+  const { clientId, clientSecret } = req.body; // Sent from frontend modal
+
+  if (!clientId || !clientSecret) {
+    return res
+      .status(400)
+      .json({ error: "Client ID and Client Secret are required." });
+  }
+
+  try {
+    const newToken = await createToken(clientId, clientSecret); // Use the updated createToken function
+    res.status(200).json({
+      message: "Access token updated successfully.",
+      accessToken: newToken,
+    });
+  } catch (error) {
+    console.error("❌ Error in POST /create-token route:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // 1. Get Operators
 // Fetches a list of operators, optionally including bundles and data plans.
@@ -112,7 +261,11 @@ router.get("/operators/:id", async (req, res) => {
 });
 
 router.post("/operators/auto-detect/group/group", async (req, res) => {
-  console.log("[Route] POST /operators/auto-detect - Request received.");
+  const token = getValidToken();
+  const storedToken = await Token.findOne({});
+
+  console.log("[Route] POST /operators/auto-detect - Request received.", storedToken.accessToken);
+ 
 
   let { numbers, countryCode } = req.body;
   console.log("[Request Body] Numbers:", numbers, "Country Code:", countryCode);
@@ -145,7 +298,7 @@ router.post("/operators/auto-detect/group/group", async (req, res) => {
       const response = await fetch(url, {
         headers: {
           Accept: "application/com.reloadly.topups-v1+json",
-          Authorization: `Bearer ${hardCodedToken}`,
+          Authorization: `Bearer ${storedToken.accessToken}`,
         },
       });
 

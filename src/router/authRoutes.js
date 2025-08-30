@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { sendOtpEmail } = require("../utils/emailService"); // Import the email service utility
+const { sendOtpEmail, sendFeedbackEmail } = require("../utils/emailService"); // Import the email service utility
 
 const User = require("../models/User");
 const Otp = require("../models/Otp");
@@ -9,8 +9,47 @@ const generateOtp = require("../utils/generateOtp");
 const generateToken = require("../utils/generateToken");
 const authenticateToken = require("../middlewares/authMiddleware");
 const BundleTransaction = require("../models/BundleTransaction");
+const Feedback = require("../models/Feedback");
 
 // REGISTER
+
+
+router.post("/submit-a-feedback", async (req, res) => {
+  try {
+    const { name, email, suggestion } = req.body;
+
+    if (!name || !email || !suggestion) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
+    // 1️⃣ Save feedback in DB
+    const newFeedback = new Feedback({ name, email, suggestion });
+    await newFeedback.save();
+
+    // 2️⃣ Send feedback email to support
+    // 3️⃣ Send confirmation email back to user
+    await sendFeedbackEmail({ name, email, suggestion });
+
+    return res.status(201).json({
+      success: true,
+      message: "Thanks for your suggestion! We've logged it and will respond soon.",
+      feedback: newFeedback,
+    });
+  } catch (error) {
+    console.error("Error saving feedback:", error);
+    return res.status(500).json({ message: "Something went wrong. Please try again later." });
+  }
+});
+// GET ALL FEEDBACKS
+router.get("/get-all/all-users-feedbacks", async (req, res) => {
+  try {
+    const feedbacks = await Feedback.find().sort({ createdAt: -1 }); // newest first
+    res.status(200).json(feedbacks);
+  } catch (error) {
+    console.error("Error fetching feedbacks:", error);
+    res.status(500).json({ message: "Server error." });
+  }
+});
 router.post("/register", async (req, res) => {
   const { name, email } = req.body;
   try {

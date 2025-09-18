@@ -11,21 +11,21 @@ const authRouter = require("./src/router/authRoutes");
 const adminRoutes = require("./src/router/adminRoutes");
 
 
-// app.use(
-//   cors({
-//     origin: ["https://www.bulkupdata.com", "http://localhost:5174/", "http://localhost:5173"],
-//     methods: ["GET", "POST", "PUT", "DELETE"],
-//     credentials: true,
-//   })
-// );
-
 app.use(
   cors({
-    origin: "*", // your frontend URL
+    origin: ["https://www.bulkupdata.com", "http://localhost:5174/", "http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
+
+// app.use(
+//   cors({
+//     origin: "*", your frontend URL
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//     credentials: true,
+//   })
+// );
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));

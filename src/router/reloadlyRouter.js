@@ -125,7 +125,7 @@ const getValidToken = async () => {
     if (storedToken && storedToken.expiresAt > new Date(Date.now() + 5000)) {
       // 5-second buffer
       console.log("✅ Using existing valid Reloadly access token from DB.");
-      return storedToken.accessToken;
+      return hardCodedToken;
     }
 
     // If no token or expired, create a new one using environment variables
@@ -155,7 +155,7 @@ const getStoredToken = async () => {
     if (!storedToken) {
       throw new Error("Access token not found in database.");
     }
-    return storedToken.accessToken;
+    return hardCodedToken;
   } catch (err) {
     console.error("[Error] Failed to retrieve stored token:", err.message);
     throw err; // Rethrow the error to stop execution
@@ -264,23 +264,30 @@ router.post("/operators/auto-detect/group/group", async (req, res) => {
   const token = getValidToken();
   const storedToken = await Token.findOne({});
 
-  console.log("[Route] POST /operators/auto-detect - Request received.", storedToken.accessToken);
- 
+  console.log(
+    "[Route] POST /operators/auto-detect/group/group - Request received."
+  );
+  console.log("[Token] Current stored access token:", storedToken?.accessToken);
 
   let { numbers, countryCode } = req.body;
+  console.log("[Request Body] Raw:", req.body);
   console.log("[Request Body] Numbers:", numbers, "Country Code:", countryCode);
+
   if (!Array.isArray(numbers)) {
     numbers = [numbers];
     console.log("[Logic] 'numbers' was not an array, converted to:", numbers);
   }
-  // --- END OF MODIFICATION ---
 
   if (numbers.length === 0) {
-    return res.status(400).json({ error: "Numbers must be a non-empty array" });
+    console.warn("[Validation] Empty numbers array received.");
+    return res
+      .status(400)
+      .json({ error: "Numbers must be a non-empty array" });
   }
 
   // Handle Nigerian code specifically
   if (countryCode === "+234") {
+    console.log("[Logic] Country code before adjustment:", countryCode);
     countryCode = "NG";
     console.log("[Logic] Country code changed from +234 to NG.");
   }
@@ -293,52 +300,76 @@ router.post("/operators/auto-detect/group/group", async (req, res) => {
       );
       url.searchParams.append("suggestedAmountsMap", "true");
 
-      console.log("[API Call] Auto-detect operator from URL:", url.toString());
+      console.log("[API Call] Detecting operator for phone:", phone);
+      console.log("[API Call] URL:", url.toString());
 
       const response = await fetch(url, {
         headers: {
           Accept: "application/com.reloadly.topups-v1+json",
-          Authorization: `Bearer ${storedToken.accessToken}`,
+          Authorization: `Bearer ${hardCodedToken}`,
         },
       });
 
-      console.log(`[API Response] Phone ${phone} - Status:`, response.status);
+      console.log(
+        `[API Response] Phone ${phone} - Status:`,
+        response.status,
+        response.statusText
+      );
 
       if (!response.ok) {
         throw new Error(`Failed for ${phone}: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log(`[API Response] Phone ${phone} - Data:`, data);
+
       return { phone, success: true, data };
     } catch (err) {
+      console.error(`[API Error] Phone ${phone} - Error:`, err.message);
       return { phone, success: false, error: err.message };
     }
   };
 
-  // helper: process numbers in batches of 50
+  // helper: process numbers in batches of 100
   const processInBatches = async (arr, batchSize = 100) => {
     let allResults = [];
     for (let i = 0; i < arr.length; i += batchSize) {
       const batch = arr.slice(i, i + batchSize);
-
-      console.log(`[Batch] Processing numbers ${i + 1} to ${i + batch.length}`);
+      console.log(
+        `[Batch] Processing numbers ${i + 1} to ${i + batch.length} of ${
+          arr.length
+        }`
+      );
 
       const results = await Promise.allSettled(batch.map(detectOperator));
+
+      console.log(
+        `[Batch] Results for numbers ${i + 1} to ${i + batch.length}:`,
+        results
+      );
 
       const formattedResults = results.map((r) =>
         r.status === "fulfilled" ? r.value : { error: r.reason }
       );
 
       allResults = allResults.concat(formattedResults);
+      console.log(
+        `[Batch] Aggregated results so far (${allResults.length}):`,
+        allResults
+      );
     }
     return allResults;
   };
 
   try {
+    console.log("[Processing] Starting operator detection for all numbers...");
     const finalResults = await processInBatches(numbers, 100);
 
+    console.log("[Processing] Completed operator detection.");
+    console.log("[Response Preview] First result:", finalResults[0]);
+
     res.json({ results: finalResults });
-    console.log("[Response] Sent operator detection results:", finalResults);
+    console.log("[Response] Sent operator detection results.");
   } catch (err) {
     console.error("[Error] POST /operators/auto-detect:", err.message);
     res.status(500).json({ error: err.message });

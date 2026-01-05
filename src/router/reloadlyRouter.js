@@ -1,7 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
-const Token = require('../models/Token')
+const Token = require("../models/Token");
 
 const fetch = (...args) => {
   console.log(
@@ -12,7 +12,7 @@ const fetch = (...args) => {
 //08120710198, 08036774826, 08035767224, 09134270313, 08155237655, 08055232050
 const router = express.Router();
 
-const hardCodedToken = `eyJraWQiOiIwMDA1YzFmMC0xMjQ3LTRmNmUtYjU2ZC1jM2ZkZDVmMzhhOTIiLCJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyNjk3NyIsImlzcyI6Imh0dHBzOi8vcmVsb2FkbHkuYXV0aDAuY29tLyIsImh0dHBzOi8vcmVsb2FkbHkuY29tL3NhbmRib3giOmZhbHNlLCJodHRwczovL3JlbG9hZGx5LmNvbS9wcmVwYWlkVXNlcklkIjoiMjY5NzciLCJndHkiOiJjbGllbnQtY3JlZGVudGlhbHMiLCJhdWQiOiJodHRwczovL3RvcHVwcy1oczI1Ni5yZWxvYWRseS5jb20iLCJuYmYiOjE3NTg4MDAwMjIsImF6cCI6IjI2OTc3Iiwic2NvcGUiOiJzZW5kLXRvcHVwcyByZWFkLW9wZXJhdG9ycyByZWFkLXByb21vdGlvbnMgcmVhZC10b3B1cHMtaGlzdG9yeSByZWFkLXByZXBhaWQtYmFsYW5jZSByZWFkLXByZXBhaWQtY29tbWlzc2lvbnMiLCJleHAiOjE3NjM5ODc2MjIsImh0dHBzOi8vcmVsb2FkbHkuY29tL2p0aSI6Ijc4OGNiMWU5LWIyN2YtNDQyNi04NTYyLTUwNjZiZjA4YWViMiIsImlhdCI6MTc1ODgwMDAyMiwianRpIjoiNDNkYWI2YTAtNzU0Zi00MjgxLTllNjctYjM4NGZmMWY3ZjZlIn0.TOjA0s-daIWa_EC5GkmYolC3rkrZBWA0Zw5yb2pEm3M`;
+const hardCodedToken = `eyJraWQiOiIwMDA1YzFmMC0xMjQ3LTRmNmUtYjU2ZC1jM2ZkZDVmMzhhOTIiLCJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIyNjk3NyIsImlzcyI6Imh0dHBzOi8vcmVsb2FkbHkuYXV0aDAuY29tLyIsImh0dHBzOi8vcmVsb2FkbHkuY29tL3NhbmRib3giOmZhbHNlLCJodHRwczovL3JlbG9hZGx5LmNvbS9wcmVwYWlkVXNlcklkIjoiMjY5NzciLCJndHkiOiJjbGllbnQtY3JlZGVudGlhbHMiLCJhdWQiOiJodHRwczovL3RvcHVwcy1oczI1Ni5yZWxvYWRseS5jb20iLCJuYmYiOjE3Njc0MzI2NjQsImF6cCI6IjI2OTc3Iiwic2NvcGUiOiJzZW5kLXRvcHVwcyByZWFkLW9wZXJhdG9ycyByZWFkLXByb21vdGlvbnMgcmVhZC10b3B1cHMtaGlzdG9yeSByZWFkLXByZXBhaWQtYmFsYW5jZSByZWFkLXByZXBhaWQtY29tbWlzc2lvbnMiLCJleHAiOjE3NzI2MTY2NjQsImh0dHBzOi8vcmVsb2FkbHkuY29tL2p0aSI6IjMzYzI5ZTgwLTQ0NjMtNDY4MC1iYjEyLWQ5YjRmMWY4YmQzZSIsImlhdCI6MTc2NzQzMjY2NCwianRpIjoiMmViZjA4YTAtNzdlNi00M2Q0LWI4YWItMWUyYTI0OGI3YzVhIn0.qEG05XjFk_iV1DQuA0atI38maZJhvDzROfJrtGQRoaM`;
 const ENVIRONMENT = process.env.NODE_ENV || "production"; // Default to sandbox if not set
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
@@ -117,37 +117,36 @@ const createToken = async (clientId, clientSecret) => {
  * @returns {Promise<string>} A valid access token.
  * @throws {Error} If a valid token cannot be obtained.
  */
-const getValidToken = async () => {
-  try {
-    const storedToken = await Token.findOne({});
+// const getValidToken = async () => {
+//   try {
+//     const storedToken = await Token.findOne({});
 
-    // Check if a token exists and is still valid (with a small buffer)
-    if (storedToken && storedToken.expiresAt > new Date(Date.now() + 5000)) {
-      // 5-second buffer
-      console.log("✅ Using existing valid Reloadly access token from DB.");
-      return hardCodedToken;
-    }
+//     // Check if a token exists and is still valid (with a small buffer)
+//     if (storedToken && storedToken.expiresAt > new Date(Date.now() + 5000)) {
+//       // 5-second buffer
+//       console.log("✅ Using existing valid Reloadly access token from DB.");
+//       return hardCodedToken;
+//     }
 
-    // If no token or expired, create a new one using environment variables
-    console.log(
-      "⏳ Reloadly access token expired/not found in DB. Attempting to refresh..."
-    );
-    const newToken = await createToken(
-      RELOADLY_CLIENT_ID,
-      RELOADLY_CLIENT_SECRET
-    );
-    return newToken;
-  } catch (error) {
-    console.error(
-      "❌ Failed to obtain a valid Reloadly access token:",
-      error.message
-    );
-    throw new Error(
-      "Could not obtain a valid Reloadly access token. Check credentials and network."
-    );
-  }
-};
-
+//     // If no token or expired, create a new one using environment variables
+//     console.log(
+//       "⏳ Reloadly access token expired/not found in DB. Attempting to refresh..."
+//     );
+//     const newToken = await createToken(
+//       RELOADLY_CLIENT_ID,
+//       RELOADLY_CLIENT_SECRET
+//     );
+//     return newToken;
+//   } catch (error) {
+//     console.error(
+//       "❌ Failed to obtain a valid Reloadly access token:",
+//       error.message
+//     );
+//     throw new Error(
+//       "Could not obtain a valid Reloadly access token. Check credentials and network."
+//     );
+//   }
+// };
 
 const getStoredToken = async () => {
   try {
@@ -161,7 +160,6 @@ const getStoredToken = async () => {
     throw err; // Rethrow the error to stop execution
   }
 };
-
 
 router.post("/admin/token/create-token", async (req, res) => {
   console.log(
@@ -261,7 +259,7 @@ router.get("/operators/:id", async (req, res) => {
 });
 
 router.post("/operators/auto-detect/group/group", async (req, res) => {
-  const token = getValidToken();
+  //const token = getValidToken();
   const storedToken = await Token.findOne({});
 
   console.log(
@@ -280,9 +278,7 @@ router.post("/operators/auto-detect/group/group", async (req, res) => {
 
   if (numbers.length === 0) {
     console.warn("[Validation] Empty numbers array received.");
-    return res
-      .status(400)
-      .json({ error: "Numbers must be a non-empty array" });
+    return res.status(400).json({ error: "Numbers must be a non-empty array" });
   }
 
   // Handle Nigerian code specifically
@@ -692,29 +688,19 @@ router.post("/create-paystack-payment", async (req, res) => {
   }
 });
 
-// 9. Main Top-up and Payment Verification Route (Combined Logic)
-// This route handles verifying a Paystack payment and then
-// processing multiple Reloadly top-up requests in parallel.
-const Recharge = require("../models/Recharge"); // import the model
-
 router.post("/main-topup/:ref", async (req, res) => {
-  console.log("[Route] POST /main-topup/:ref - Request received.");
   const { ref: paymentRef } = req.params;
   const payloadArray = req.body;
 
   if (!paymentRef) {
-    console.log("[Validation] Missing payment reference.");
     return res.status(400).json({ error: "Missing payment reference" });
   }
 
   if (!Array.isArray(payloadArray) || payloadArray.length === 0) {
-    console.log("[Validation] Payload must be a non-empty array.");
     return res.status(400).json({ error: "Payload must be a non-empty array" });
   }
 
   try {
-    // 1. Verify Paystack Payment
-    console.log(`🔍 Verifying Paystack payment for reference: ${paymentRef}`);
     const { data } = await axios.get(
       `https://api.paystack.co/transaction/verify/${paymentRef}`,
       {
@@ -726,7 +712,6 @@ router.post("/main-topup/:ref", async (req, res) => {
     );
 
     const paymentData = data.data;
-    console.log("[Paystack Verification] Status:", paymentData.status);
 
     if (paymentData.status !== "success") {
       return res.redirect(
@@ -734,9 +719,6 @@ router.post("/main-topup/:ref", async (req, res) => {
       );
     }
 
-    console.log(
-      `✅ Paystack verified. Processing ${payloadArray?.length} top-ups in parallel.`
-    );
     const results = await Promise.allSettled(
       payloadArray.map(async (payload) => {
         try {
@@ -744,11 +726,9 @@ router.post("/main-topup/:ref", async (req, res) => {
           const planType = payload?.planType;
           const network = payload?.network;
           const logoUrls = payload?.logoUrls;
-          //logoUrls
           const timestamp = Date.now();
           payload.customIdentifier = `${uuidv4()}_${timestamp}`;
 
-          console.log(payload, "payload");
           const finalPayload = {
             ...payload,
             retailDataAmount,
@@ -771,36 +751,27 @@ router.post("/main-topup/:ref", async (req, res) => {
           const topupData = await response.json();
 
           if (!response.ok) {
-            console.error(response, "responseerr");
             return { success: false, payload: finalPayload, topupData };
           }
 
-          console.log(
-            `[Reloadly Success] Top-up successful for${payload?.userId} ${finalPayload.customIdentifier}`
-          );
-
-          // ✅ Save to DB if there's a user token
           if (payload?.userId) {
             const recharge = new Recharge({
               userId: payload.userId,
               ...finalPayload,
-              transactionId: topupData?.id || finalPayload.id, // map reloadly id
+              transactionId: topupData?.id || finalPayload.id,
               status: topupData?.status || "pending",
             });
 
             await recharge.save();
-            console.log(`[DB] Recharge stored for user ${payload.userId}`);
           }
 
           return { success: true, payload: finalPayload, topupData };
         } catch (err) {
-          console.error(`[Error] Reloadly topup error:`, err.message);
           return { success: false, payload, error: err.message };
         }
       })
     );
 
-    // 3. Normalize results
     const normalizedResults = results.map((r) =>
       r.status === "fulfilled" ? r.value : { success: false, error: r.reason }
     );
@@ -811,109 +782,57 @@ router.post("/main-topup/:ref", async (req, res) => {
       results: normalizedResults,
     });
   } catch (err) {
-    console.error("❌ Error processing topup (main-topup route):", err.message);
-    if (err.response) {
-      console.error("❌ Downstream API Error:", err.response.data);
-    }
     return res.status(500).json({ error: err.message || "Server error" });
   }
 });
-// 10. Verify Paystack Payment Status (Standalone Route)
-// This route is typically hit by Paystack's callback URL to confirm payment status.
+
 router.get("/verify-payment", async (req, res) => {
-  console.log("[Route] GET /verify-payment - Request received.");
-  const { reference, trxref } = req.query; // Get reference from query parameters
-  console.log("[Request Query] Reference:", reference, "TRXREF:", trxref);
-
-  // Use either 'reference' or 'trxref' as the payment reference
+  const { reference, trxref } = req.query;
   const paymentRef = reference || trxref;
-  console.log("[Payment Ref] Determined payment reference:", paymentRef);
 
-  // Validate that a payment reference is present
   if (!paymentRef) {
-    console.log(
-      "[Validation] Missing payment reference (reference or trxref)."
-    );
     return res.status(400).json({
       error: "Payment reference (reference or trxref) is required.",
     });
   }
 
-  console.log(`🔍 Verifying payment for Reference: ${paymentRef}`);
-
   try {
-    console.log("[API Call] Verifying Paystack payment...");
     const { data } = await axios.get(
       `https://api.paystack.co/transaction/verify/${paymentRef}`,
       {
         headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, // Use Paystack secret key
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
           "Content-Type": "application/json",
         },
       }
     );
-    console.log(
-      "[API Response] Paystack verification response data:",
-      JSON.stringify(data)
-    );
 
-    const paymentData = data.data; // Extract payment data
-    console.log("[Paystack Verification] Payment status:", paymentData.status);
+    const paymentData = data.data;
 
-    // Redirect to success/failure pages based on Paystack status
     if (paymentData.status !== "success") {
-      console.log(
-        "[Logic] Paystack payment not successful. Redirecting to failure page."
-      );
       return res.redirect(
         `${WEB_URL_PROD}/payment-failure?status=failure&ref=${paymentRef}`
       );
     }
 
-    console.log(
-      "[Logic] Payment verified successfully. Sending success response."
-    );
-    // Respond to the client indicating successful payment verification
     return res.status(200).json({
       message: "Payment verified",
       status: 200,
       success: true,
     });
   } catch (error) {
-    // Handle errors during Paystack verification
-    console.error(
-      "❌ Error verifying payment (verify-payment route):",
-      error?.response?.data || error.message
-    );
-    if (error.response) {
-      console.error("❌ Paystack Error Response Data:", error.response.data);
-      console.error(
-        "❌ Paystack Error Response Status:",
-        error.response.status
-      );
-    }
-    console.log(
-      "[Logic] Error during payment verification. Redirecting to error page."
-    );
-    // Redirect to an error page in case of an exception during verification
     return res.redirect(`${WEB_URL_PROD}/payment-failure?status=error`);
   }
 });
 
-// ✅ GET: Get all recharges for a user
-// ✅ GET: Get all recharges for a user
 router.get(
   "/operators/recharges-fetch/recharge/by-user/:userId",
   async (req, res) => {
     try {
       const { userId } = req.params;
-
-      console.log("➡️ Incoming request to fetch recharges for userId:", userId);
-
       const recharges = await Recharge.find({ userId }).sort({ createdAt: -1 });
 
       if (!recharges || recharges.length === 0) {
-        console.log("⚠️ No recharges found for this user:", userId);
         return res.status(404).json({
           code: 404,
           status: "error",
@@ -921,7 +840,6 @@ router.get(
         });
       }
 
-      console.log("✅ Sending recharges response for userId:", userId);
       return res.status(200).json({
         code: 200,
         status: "success",
@@ -929,11 +847,6 @@ router.get(
         data: recharges,
       });
     } catch (err) {
-      console.error(
-        "❌ Error fetching recharges for user:",
-        req.params.userId,
-        err
-      );
       return res.status(500).json({
         code: 500,
         status: "error",
@@ -943,10 +856,9 @@ router.get(
   }
 );
 
-// New route to get all recharges
 router.get("/recharges/all", async (req, res) => {
   try {
-    const recharges = await Recharge.find({}); // Fetch all documents
+    const recharges = await Recharge.find({});
     if (!recharges || recharges.length === 0) {
       return res.status(404).json({
         code: 404,

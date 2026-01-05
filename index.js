@@ -10,12 +10,22 @@ const server = http.createServer(app);
 const authRouter = require("./src/router/authRoutes");
 const adminRoutes = require("./src/router/adminRoutes");
 
+// app.use(
+//   cors({
+//     //origin: ["https://www.bulkupdata.com", "http://localhost:5174/", "http://localhost:5173"],
+
+//     origin: "*",
+//     methods: ["GET", "POST", "PUT", "DELETE"],
+//     credentials: true,
+//   })
+// );
+
 
 app.use(
   cors({
-    origin: ["https://www.bulkupdata.com", "http://localhost:5174/", "http://localhost:5173"],
+    origin: "*", // Allows any website to access this API
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
+    credentials: false, 
   })
 );
 

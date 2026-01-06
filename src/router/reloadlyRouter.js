@@ -688,86 +688,120 @@ router.post("/create-paystack-payment", async (req, res) => {
   }
 });
 
+// 9. Main Top-up and Payment Verification Route (Combined Logic)
+// This route handles verifying a Paystack payment and then
+// processing multiple Reloadly top-up requests in parallel.
+const Recharge = require("../models/Recharge"); // import the model
+
 router.post("/main-topup/:ref", async (req, res) => {
+  console.log("[Route] POST /main-topup/:ref - Request received.");
   const { ref: paymentRef } = req.params;
-  const payloadArray = req.body;
+  const payloadArray = req.body.payload || req.body; // Handle both direct array or wrapped payload
 
   if (!paymentRef) {
+    console.log("[Validation] Missing payment reference.");
     return res.status(400).json({ error: "Missing payment reference" });
   }
 
   if (!Array.isArray(payloadArray) || payloadArray.length === 0) {
+    console.log("[Validation] Payload must be a non-empty array.");
     return res.status(400).json({ error: "Payload must be a non-empty array" });
   }
 
   try {
-    const { data } = await axios.get(
+    // 1. Verify Paystack Payment
+    console.log(`🔍 Verifying Paystack payment: ${paymentRef}`);
+    const paystackRes = await axios.get(
       `https://api.paystack.co/transaction/verify/${paymentRef}`,
       {
         headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
           "Content-Type": "application/json",
         },
       }
     );
 
-    const paymentData = data.data;
-
-    if (paymentData.status !== "success") {
-      return res.redirect(
-        `${WEB_URL_PROD}/recharge-failure?status=failure&ref=${paymentRef}`
-      );
+    if (paystackRes.data.data.status !== "success") {
+      return res
+        .status(400)
+        .json({ error: "Payment not successful on Paystack" });
     }
 
+    console.log(
+      `✅ Payment verified. Processing ${payloadArray.length} top-ups.`
+    );
+
+    // 2. Process Top-ups in Parallel
     const results = await Promise.allSettled(
       payloadArray.map(async (payload) => {
+        const timestamp = Date.now();
+        const customId = `${uuidv4()}_${timestamp}`;
+
+        const finalPayload = {
+          ...payload,
+          customIdentifier: customId,
+        };
+
         try {
-          const retailDataAmount = payload?.retailDataAmount;
-          const planType = payload?.planType;
-          const network = payload?.network;
-          const logoUrls = payload?.logoUrls;
-          const timestamp = Date.now();
-          payload.customIdentifier = `${uuidv4()}_${timestamp}`;
-
-          const finalPayload = {
-            ...payload,
-            retailDataAmount,
-            planType,
-            network,
-            logoUrls,
-          };
-
-          const fetchUrl = `${BASE_URL}/topups-async`;
-          const response = await fetch(fetchUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/com.reloadly.topups-v1+json",
-              Authorization: `Bearer ${hardCodedToken}`,
-            },
-            body: JSON.stringify(finalPayload),
-          });
+          const response = await fetch(
+            `${process.env.RELOADLY_BASE_URL}/topups-async`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/com.reloadly.topups-v1+json",
+                Authorization: `Bearer ${process.env.RELOADLY_TOKEN}`,
+              },
+              body: JSON.stringify(finalPayload),
+            }
+          );
 
           const topupData = await response.json();
 
           if (!response.ok) {
+            console.error(`[Reloadly Fail] ${topupData?.message}`);
+
+            // SAVE FAILED RECHARGE TO DB
+            if (payload?.userId) {
+              const failedRecharge = new Recharge({
+                userId: payload.userId,
+                ...finalPayload,
+                transactionId: `FAIL_${timestamp}`,
+                status: "failed",
+                errorMessage: topupData?.message || "Provider declined request",
+              });
+              await failedRecharge.save();
+            }
             return { success: false, payload: finalPayload, topupData };
           }
 
+          // SAVE SUCCESSFUL RECHARGE TO DB
           if (payload?.userId) {
-            const recharge = new Recharge({
+            const successRecharge = new Recharge({
               userId: payload.userId,
               ...finalPayload,
-              transactionId: topupData?.id || finalPayload.id,
-              status: topupData?.status || "pending",
+              transactionId: topupData?.id || customId,
+              status: topupData?.status || "successful",
             });
-
-            await recharge.save();
+            await successRecharge.save();
           }
 
           return { success: true, payload: finalPayload, topupData };
         } catch (err) {
-          return { success: false, payload, error: err.message };
+          console.error(`[System Error] ${err.message}`);
+
+          // SAVE SYSTEM ERROR RECHARGE TO DB
+          if (payload?.userId) {
+            const errorRecharge = new Recharge({
+              userId: payload.userId,
+              ...finalPayload,
+              transactionId: `ERR_${timestamp}`,
+              status: "failed",
+              errorMessage: err.message || "Internal processing error",
+            });
+            await errorRecharge.save();
+          }
+          return { success: false, payload: finalPayload, error: err.message };
         }
       })
     );
@@ -782,57 +816,106 @@ router.post("/main-topup/:ref", async (req, res) => {
       results: normalizedResults,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message || "Server error" });
+    console.error("❌ Global Route Error:", err.message);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
+// 10. Verify Paystack Payment Status (Standalone Route)
+// This route is typically hit by Paystack's callback URL to confirm payment status.
 router.get("/verify-payment", async (req, res) => {
-  const { reference, trxref } = req.query;
-  const paymentRef = reference || trxref;
+  console.log("[Route] GET /verify-payment - Request received.");
+  const { reference, trxref } = req.query; // Get reference from query parameters
+  console.log("[Request Query] Reference:", reference, "TRXREF:", trxref);
 
+  // Use either 'reference' or 'trxref' as the payment reference
+  const paymentRef = reference || trxref;
+  console.log("[Payment Ref] Determined payment reference:", paymentRef);
+
+  // Validate that a payment reference is present
   if (!paymentRef) {
+    console.log(
+      "[Validation] Missing payment reference (reference or trxref)."
+    );
     return res.status(400).json({
       error: "Payment reference (reference or trxref) is required.",
     });
   }
 
+  console.log(`🔍 Verifying payment for Reference: ${paymentRef}`);
+
   try {
+    console.log("[API Call] Verifying Paystack payment...");
     const { data } = await axios.get(
       `https://api.paystack.co/transaction/verify/${paymentRef}`,
       {
         headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, // Use Paystack secret key
           "Content-Type": "application/json",
         },
       }
     );
+    console.log(
+      "[API Response] Paystack verification response data:",
+      JSON.stringify(data)
+    );
 
-    const paymentData = data.data;
+    const paymentData = data.data; // Extract payment data
+    console.log("[Paystack Verification] Payment status:", paymentData.status);
 
+    // Redirect to success/failure pages based on Paystack status
     if (paymentData.status !== "success") {
+      console.log(
+        "[Logic] Paystack payment not successful. Redirecting to failure page."
+      );
       return res.redirect(
         `${WEB_URL_PROD}/payment-failure?status=failure&ref=${paymentRef}`
       );
     }
 
+    console.log(
+      "[Logic] Payment verified successfully. Sending success response."
+    );
+    // Respond to the client indicating successful payment verification
     return res.status(200).json({
       message: "Payment verified",
       status: 200,
       success: true,
     });
   } catch (error) {
+    // Handle errors during Paystack verification
+    console.error(
+      "❌ Error verifying payment (verify-payment route):",
+      error?.response?.data || error.message
+    );
+    if (error.response) {
+      console.error("❌ Paystack Error Response Data:", error.response.data);
+      console.error(
+        "❌ Paystack Error Response Status:",
+        error.response.status
+      );
+    }
+    console.log(
+      "[Logic] Error during payment verification. Redirecting to error page."
+    );
+    // Redirect to an error page in case of an exception during verification
     return res.redirect(`${WEB_URL_PROD}/payment-failure?status=error`);
   }
 });
 
+// ✅ GET: Get all recharges for a user
+// ✅ GET: Get all recharges for a user
 router.get(
   "/operators/recharges-fetch/recharge/by-user/:userId",
   async (req, res) => {
     try {
       const { userId } = req.params;
+
+      console.log("➡️ Incoming request to fetch recharges for userId:", userId);
+
       const recharges = await Recharge.find({ userId }).sort({ createdAt: -1 });
 
       if (!recharges || recharges.length === 0) {
+        console.log("⚠️ No recharges found for this user:", userId);
         return res.status(404).json({
           code: 404,
           status: "error",
@@ -840,6 +923,7 @@ router.get(
         });
       }
 
+      console.log("✅ Sending recharges response for userId:", userId);
       return res.status(200).json({
         code: 200,
         status: "success",
@@ -847,6 +931,11 @@ router.get(
         data: recharges,
       });
     } catch (err) {
+      console.error(
+        "❌ Error fetching recharges for user:",
+        req.params.userId,
+        err
+      );
       return res.status(500).json({
         code: 500,
         status: "error",
@@ -856,9 +945,10 @@ router.get(
   }
 );
 
+// New route to get all recharges
 router.get("/recharges/all", async (req, res) => {
   try {
-    const recharges = await Recharge.find({});
+    const recharges = await Recharge.find({}); // Fetch all documents
     if (!recharges || recharges.length === 0) {
       return res.status(404).json({
         code: 404,

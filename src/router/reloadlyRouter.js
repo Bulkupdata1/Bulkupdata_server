@@ -735,49 +735,11 @@ router.post("/main-topup/:ref", async (req, res) => {
     // 2. Process Top-ups in Parallel
     const results = await Promise.allSettled(
       payloadArray.map(async (payload) => {
-        const timestamp = Date.now();
-        const customId = `${uuidv4()}_${timestamp}`;
-
-        const finalPayload = {
-          ...payload,
-          customIdentifier: customId,
-        };
-
         try {
-          const response = await fetch(
-            `${process.env.RELOADLY_BASE_URL}/topups-async`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/com.reloadly.topups-v1+json",
-                Authorization: `Bearer ${process.env.RELOADLY_TOKEN}`,
-              },
-              body: JSON.stringify(finalPayload),
-            }
-          );
+          const timestamp = Date.now();
+          const customId = `${uuidv4()}_${timestamp}`;
 
-          const topupData = await response.json();
-
-          if (!response.ok) {
-            console.error(`[Reloadly Fail] ${topupData?.message}`);
-
-            // SAVE FAILED RECHARGE TO DB
-            if (payload?.userId) {
-              const failedRecharge = new Recharge({
-                userId: payload.userId,
-                ...finalPayload,
-                transactionId: `FAIL_${timestamp}`,
-                status: "failed",
-                errorMessage: topupData?.message || "Provider declined request",
-              });
-              await failedRecharge.save();
-            }
-            return { success: false, payload: finalPayload, topupData };
-          }
-
-          // SAVE SUCCESSFUL RECHARGE TO DB
-          // FORMATTING LOGIC: Ensure number starts with 234 and removes leading 0 or +
+          // --- 1. STRICT PHONE FORMATTING (234...) ---
           let formattedRecipient = "";
           const rawRecipient =
             payload.recipientPhone?.number ||
@@ -787,14 +749,10 @@ router.post("/main-topup/:ref", async (req, res) => {
 
           if (rawRecipient) {
             let cleanNumber = rawRecipient.toString().trim();
-
-            // 1. Remove '+' if it exists
             if (cleanNumber.startsWith("+")) cleanNumber = cleanNumber.slice(1);
-
-            // 2. If it starts with '0', remove it (e.g., 080... becomes 80...)
             if (cleanNumber.startsWith("0")) cleanNumber = cleanNumber.slice(1);
 
-            // 3. If it doesn't start with '234', prepend it
+            // Ensure it starts with 234
             if (!cleanNumber.startsWith("234")) {
               formattedRecipient = `234${cleanNumber}`;
             } else {
@@ -802,51 +760,104 @@ router.post("/main-topup/:ref", async (req, res) => {
             }
           }
 
-          // SAVE SUCCESSFUL RECHARGE TO DB
+          // --- 2. PREPARE CLEAN PAYLOAD ---
+          const finalPayload = {
+            ...payload,
+            customIdentifier: customId,
+            // Update the recipient number to the 234 format for the API call
+            recipientPhone:
+              payload.recipientPhone &&
+              typeof payload.recipientPhone === "object"
+                ? { ...payload.recipientPhone, number: formattedRecipient }
+                : { countryCode: "NG", number: formattedRecipient },
+            // Keep your extra fields
+            retailDataAmount: payload?.retailDataAmount,
+            planType: payload?.planType,
+            network: payload?.network,
+            logoUrls: payload?.logoUrls,
+          };
+
+          console.log(
+            `[Processing] Number: ${formattedRecipient} | ID: ${customId}`
+          );
+
+          // --- 3. RELOADLY API CALL ---
+          // Using /topups instead of /topups-async for better status reliability
+          const fetchUrl = `${BASE_URL}/topups`;
+          const response = await fetch(fetchUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/com.reloadly.topups-v1+json",
+              Authorization: `Bearer ${hardCodedToken}`,
+            },
+            body: JSON.stringify(finalPayload),
+          });
+
+          const topupData = await response.json();
+
+          if (!response.ok) {
+            console.error(
+              `[Reloadly Fail] Status: ${response.status}`,
+              topupData
+            );
+
+            // Save Failed attempt to DB
+            if (payload?.userId) {
+              await new Recharge({
+                userId: payload.userId,
+                ...finalPayload,
+                transactionId: `FAIL_${timestamp}`,
+                status: "failed",
+                errorMessage: topupData?.message || "Provider error",
+              }).save();
+            }
+            return { success: false, payload: finalPayload, topupData };
+          }
+
+          console.log(
+            `[Reloadly Success] ID: ${topupData.transactionId || customId}`
+          );
+
+          // --- 4. SAVE SUCCESS TO DB ---
           if (payload?.userId) {
-            const successRecharge = new Recharge({
+            const recharge = new Recharge({
               userId: payload.userId,
               ...finalPayload,
-              // Ensure the phone number in the DB is also in the 234 format
+              // Ensure DB reflects the formatted 234 number
               recipientPhone: {
-                ...payload.recipientPhone,
+                countryCode: "NG",
                 number: formattedRecipient,
               },
-              transactionId: topupData?.id || customId,
-              status: topupData?.status || "successful",
+              transactionId:
+                topupData?.transactionId || topupData?.id || customId,
+              status: "successful",
             });
-            await successRecharge.save();
 
+            await recharge.save();
+            console.log(`[DB] Recharge stored for user ${payload.userId}`);
+
+            // --- 5. SEND SMS NOTIFICATION ---
             const amount = payload.amount;
             const currency = payload.recipientCurrencyCode || "NGN";
-
-            // Using the formatted 234... number for the SMS message and recipient
             const smsMessage = `Your topup from Bulkupdata of ${currency} ${amount} to ${formattedRecipient} was successful.`;
 
-            // Send SMS using the strictly formatted 234 number
             sendSMS(formattedRecipient, smsMessage).catch((err) =>
-              console.error("[SMS Notification Error]", err.message)
+              console.error("[SMS Error]", err.message)
             );
           }
+
           return { success: true, payload: finalPayload, topupData };
         } catch (err) {
-          console.error(`[System Error] ${err.message}`);
-
-          // SAVE SYSTEM ERROR RECHARGE TO DB
-          if (payload?.userId) {
-            const errorRecharge = new Recharge({
-              userId: payload.userId,
-              ...finalPayload,
-              transactionId: `ERR_${timestamp}`,
-              status: "failed",
-              errorMessage: err.message || "Internal processing error",
-            });
-            await errorRecharge.save();
-          }
-          return { success: false, payload: finalPayload, error: err.message };
+          console.error(
+            `[System Error] Reloadly topup exception:`,
+            err.message
+          );
+          return { success: false, payload, error: err.message };
         }
       })
     );
+    
 
     const normalizedResults = results.map((r) =>
       r.status === "fulfilled" ? r.value : { success: false, error: r.reason }

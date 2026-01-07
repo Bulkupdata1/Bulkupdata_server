@@ -777,27 +777,57 @@ router.post("/main-topup/:ref", async (req, res) => {
           }
 
           // SAVE SUCCESSFUL RECHARGE TO DB
+          // FORMATTING LOGIC: Ensure number starts with 234 and removes leading 0 or +
+          let formattedRecipient = "";
+          const rawRecipient =
+            payload.recipientPhone?.number ||
+            payload.phone?.number ||
+            payload.recipientPhone ||
+            "";
+
+          if (rawRecipient) {
+            let cleanNumber = rawRecipient.toString().trim();
+
+            // 1. Remove '+' if it exists
+            if (cleanNumber.startsWith("+")) cleanNumber = cleanNumber.slice(1);
+
+            // 2. If it starts with '0', remove it (e.g., 080... becomes 80...)
+            if (cleanNumber.startsWith("0")) cleanNumber = cleanNumber.slice(1);
+
+            // 3. If it doesn't start with '234', prepend it
+            if (!cleanNumber.startsWith("234")) {
+              formattedRecipient = `234${cleanNumber}`;
+            } else {
+              formattedRecipient = cleanNumber;
+            }
+          }
+
+          // SAVE SUCCESSFUL RECHARGE TO DB
           if (payload?.userId) {
             const successRecharge = new Recharge({
               userId: payload.userId,
               ...finalPayload,
+              // Ensure the phone number in the DB is also in the 234 format
+              recipientPhone: {
+                ...payload.recipientPhone,
+                number: formattedRecipient,
+              },
               transactionId: topupData?.id || customId,
               status: topupData?.status || "successful",
             });
             await successRecharge.save();
 
-            const recipient = payload.recipientPhone || payload.phone?.number;
             const amount = payload.amount;
             const currency = payload.recipientCurrencyCode || "NGN";
 
-            const smsMessage = `Your topup from Bulkupdata of ${currency} ${amount} to ${recipient} was successful.`;
+            // Using the formatted 234... number for the SMS message and recipient
+            const smsMessage = `Your topup from Bulkupdata of ${currency} ${amount} to ${formattedRecipient} was successful.`;
 
-            // Send SMS (we don't 'await' it to avoid slowing down the API response)
-            sendSMS(recipient, smsMessage).catch((err) =>
+            // Send SMS using the strictly formatted 234 number
+            sendSMS(formattedRecipient, smsMessage).catch((err) =>
               console.error("[SMS Notification Error]", err.message)
             );
           }
-
           return { success: true, payload: finalPayload, topupData };
         } catch (err) {
           console.error(`[System Error] ${err.message}`);

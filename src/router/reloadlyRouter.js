@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const { v4: uuidv4 } = require("uuid");
 const Token = require("../models/Token");
+const { sendSMS } = require("../utils/sendSMS");
 
 const fetch = (...args) => {
   console.log(
@@ -784,6 +785,17 @@ router.post("/main-topup/:ref", async (req, res) => {
               status: topupData?.status || "successful",
             });
             await successRecharge.save();
+
+            const recipient = payload.recipientPhone || payload.phone?.number;
+            const amount = payload.amount;
+            const currency = payload.recipientCurrencyCode || "NGN";
+
+            const smsMessage = `Your topup from Bulkupdata of ${currency} ${amount} to ${recipient} was successful.`;
+
+            // Send SMS (we don't 'await' it to avoid slowing down the API response)
+            sendSMS(recipient, smsMessage).catch((err) =>
+              console.error("[SMS Notification Error]", err.message)
+            );
           }
 
           return { success: true, payload: finalPayload, topupData };

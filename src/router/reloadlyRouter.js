@@ -840,7 +840,7 @@ router.post("/main-topup/:ref", async (req, res) => {
             // --- 5. SEND SMS NOTIFICATION ---
             const amount = payload.amount;
             const currency = payload.recipientCurrencyCode || "NGN";
-            const smsMessage = `Your topup from Bulkupdata of ${currency} ${amount} to ${formattedRecipient} was successful.`;
+            const smsMessage = `You just received 5000 naira airtime from askNivi for our vaccination study.`;
 
             sendSMS(formattedRecipient, smsMessage).catch((err) =>
               console.error("[SMS Error]", err.message)
@@ -857,7 +857,6 @@ router.post("/main-topup/:ref", async (req, res) => {
         }
       })
     );
-    
 
     const normalizedResults = results.map((r) =>
       r.status === "fulfilled" ? r.value : { success: false, error: r.reason }

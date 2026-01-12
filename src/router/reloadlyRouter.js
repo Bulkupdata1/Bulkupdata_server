@@ -600,8 +600,7 @@ router.get("/transactions/:transactionId", async (req, res) => {
 // Initializes a payment transaction with Paystack.
 router.post("/create-paystack-payment", async (req, res) => {
   console.log("[Route] POST /create-paystack-payment - Request received.");
-  const { amount, currency = "NGN", callback_url } = req.body;
-  const email = `bulkupdata@gmail.com`; // Hardcoded email for payment initiation
+  const { amount, currency = "NGN", callback_url, email } = req.body;
 
   console.log(
     "[Request Body] Amount:",

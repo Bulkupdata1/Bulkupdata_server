@@ -13,7 +13,6 @@ const Feedback = require("../models/Feedback");
 
 // REGISTER
 
-
 router.post("/submit-a-feedback", async (req, res) => {
   try {
     const { name, email, suggestion } = req.body;
@@ -32,12 +31,15 @@ router.post("/submit-a-feedback", async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Thanks for your suggestion! We've logged it and will respond soon.",
+      message:
+        "Thanks for your suggestion! We've logged it and will respond soon.",
       feedback: newFeedback,
     });
   } catch (error) {
     console.error("Error saving feedback:", error);
-    return res.status(500).json({ message: "Something went wrong. Please try again later." });
+    return res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again later." });
   }
 });
 // GET ALL FEEDBACKS
@@ -146,6 +148,7 @@ router.post("/verify-otp", async (req, res) => {
       message: "OTP verified",
       token,
       userId: user._id, // ✅ include userId
+      email: email,
     });
   } catch (err) {
     console.log("💥 Server error:", err.message);
